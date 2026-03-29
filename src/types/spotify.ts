@@ -21,9 +21,10 @@ export interface TrackObject {
   artists: SimplifiedArtist[];
 }
 
-export interface PlaylistTrackObject {
-  track: TrackObject | null;
+export interface PlaylistItemObject {
+  item: TrackObject | null;
   added_at: string;
+  is_local: boolean;
 }
 
 export interface PagingObject<T> {
@@ -41,7 +42,7 @@ export interface SimplifiedPlaylist {
   name: string;
   description: string | null;
   uri: string;
-  tracks: { total: number };
+  items: { total: number };
   owner: { display_name: string; id: string };
   public: boolean | null;
   collaborative: boolean;

@@ -1,0 +1,183 @@
+import readline from "readline";
+import chalk from "chalk";
+import { getUserPlaylists, getPlaylist } from "../api/playlists.js";
+import { getAllPlaylistTracks, getLikedTracks } from "../api/tracks.js";
+import { findExactDuplicates } from "../analysis/exactMatcher.js";
+import { findFuzzyDuplicates } from "../analysis/fuzzyMatcher.js";
+import { countByArtist } from "../analysis/artistSummary.js";
+import { printResults, printArtistSummary } from "./reporter.js";
+import { selectPlaylist, LIKED_SONGS_ID } from "./prompt.js";
+import type { SimplifiedPlaylist, TrackWithPosition } from "../types/spotify.js";
+
+const PLAYLIST_URL_RE = /(?:playlist[/:])([\w]+)/;
+
+function parsePlaylistId(arg: string): string | null {
+  const match = arg.match(PLAYLIST_URL_RE);
+  if (match) return match[1];
+  if (/^[\w]{22}$/.test(arg)) return arg;
+  return null;
+}
+
+const HELP = `
+${chalk.bold("Available commands:")}
+
+  ${chalk.cyan("select")}              Pick a playlist interactively
+  ${chalk.cyan("select")} ${chalk.dim("<url|id>")}      Load a playlist by URL or ID
+
+  ${chalk.cyan("dupes")}               Check selected playlist for exact duplicates
+  ${chalk.cyan("dupes fuzzy")}         Also check for near-duplicates (remasters, edits, etc.)
+
+  ${chalk.cyan("artists")}             Show song count by artist, sorted by count
+
+  ${chalk.cyan("info")}                Show details about the currently loaded playlist
+
+  ${chalk.cyan("help")}                Show this help screen
+  ${chalk.cyan("exit")}                Quit
+`;
+
+function createRl(): readline.Interface {
+  return readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+}
+
+function readLine(rl: readline.Interface): Promise<string | null> {
+  return new Promise((resolve) => {
+    process.stdout.write(chalk.cyan("› "));
+    rl.once("line", resolve);
+    rl.once("close", () => resolve(null));
+  });
+}
+
+export async function runShell(token: string): Promise<void> {
+  let playlist: SimplifiedPlaylist | null = null;
+  let tracks: TrackWithPosition[] | null = null;
+
+  console.log(chalk.bold.green("\nSpotify Playlist Utility"));
+  console.log(chalk.dim('Type "help" for available commands.\n'));
+
+  while (true) {
+    const rl = createRl();
+    const raw = await readLine(rl);
+    rl.close();
+    process.stdin.resume();
+
+    if (raw === null) {
+      console.log("\nGoodbye.");
+      process.exit(0);
+    }
+
+    const line = raw.trim();
+    if (!line) continue;
+
+    const [cmd, ...rest] = line.split(/\s+/);
+    const arg = rest.join(" ");
+
+    try {
+      switch (cmd.toLowerCase()) {
+        case "help":
+        case "?":
+          console.log(HELP);
+          break;
+
+        case "select": {
+          if (arg) {
+            const id = parsePlaylistId(arg);
+            if (!id) {
+              console.log(chalk.red(`Could not parse a playlist ID from: ${arg}`));
+              break;
+            }
+            process.stdout.write("Loading playlist...\r");
+            playlist = await getPlaylist(id, token);
+            tracks = null;
+            process.stdout.write(" ".repeat(30) + "\r");
+            console.log(chalk.green(`✓ Loaded: ${playlist.name} (${playlist.items?.total ?? "?"} tracks)`));
+          } else {
+            process.stdout.write("Fetching your playlists...\r");
+            const playlists = await getUserPlaylists(token);
+            process.stdout.write(" ".repeat(30) + "\r");
+            // Inquirer takes over stdin — readline is already closed above
+            playlist = await selectPlaylist(playlists);
+            tracks = null;
+            console.log(chalk.green(`✓ Selected: ${playlist.name}`));
+          }
+          break;
+        }
+
+        case "dupes": {
+          if (!playlist) {
+            console.log(chalk.yellow('No playlist loaded. Run "select" first.'));
+            break;
+          }
+          tracks = await ensureTracks(playlist, tracks, token);
+          const fuzzy = arg === "fuzzy";
+          const exactDupes = findExactDuplicates(tracks);
+          const exactIds = new Set(exactDupes.flatMap((g) => (g.trackId ? [g.trackId] : [])));
+          const fuzzyDupes = fuzzy ? findFuzzyDuplicates(tracks, exactIds) : [];
+          const totalTracks = playlist.items?.total ?? tracks.length;
+          const skipped = Math.max(0, totalTracks - tracks.length);
+          printResults(playlist, exactDupes, fuzzyDupes, tracks.length, skipped);
+          break;
+        }
+
+        case "artists": {
+          if (!playlist) {
+            console.log(chalk.yellow('No playlist loaded. Run "select" first.'));
+            break;
+          }
+          tracks = await ensureTracks(playlist, tracks, token);
+          printArtistSummary(playlist, countByArtist(tracks), tracks.length);
+          break;
+        }
+
+        case "info": {
+          if (!playlist) {
+            console.log(chalk.yellow('No playlist loaded. Run "select" first.'));
+            break;
+          }
+          console.log();
+          console.log(`${chalk.bold("Name:")}   ${playlist.name}`);
+          console.log(`${chalk.bold("Owner:")}  ${playlist.owner.display_name}`);
+          console.log(`${chalk.bold("Tracks:")} ${playlist.items?.total ?? "?"}`);
+          if (playlist.description) {
+            console.log(`${chalk.bold("Desc:")}   ${playlist.description}`);
+          }
+          console.log();
+          break;
+        }
+
+        case "exit":
+        case "quit":
+        case "q":
+          console.log("Goodbye.");
+          process.exit(0);
+
+        default:
+          console.log(chalk.red(`Unknown command: "${cmd}". Type "help" for available commands.`));
+      }
+    } catch (err) {
+      console.error(chalk.red(err instanceof Error ? err.message : String(err)));
+    }
+  }
+}
+
+async function ensureTracks(
+  playlist: SimplifiedPlaylist,
+  cached: TrackWithPosition[] | null,
+  token: string
+): Promise<TrackWithPosition[]> {
+  if (cached) return cached;
+
+  const isLiked = playlist.id === LIKED_SONGS_ID;
+  const onProgress = (done: number, total: number) => {
+    process.stdout.write(`Fetching tracks... ${done}/${total}\r`);
+  };
+
+  const result = await (isLiked
+    ? getLikedTracks(token, onProgress)
+    : getAllPlaylistTracks(playlist.id, token, onProgress));
+
+  process.stdout.write(" ".repeat(40) + "\r");
+  return result;
+}
