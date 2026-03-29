@@ -29,6 +29,8 @@ ${chalk.bold("Available commands:")}
 
   ${chalk.cyan("artists")}             Show song count by artist, sorted by count
 
+  ${chalk.cyan("list")}                List all your playlists
+
   ${chalk.cyan("info")}                Show details about the currently loaded playlist
 
   ${chalk.cyan("help")}                Show this help screen
@@ -128,6 +130,21 @@ export async function runShell(token: string): Promise<void> {
           }
           tracks = await ensureTracks(playlist, tracks, token);
           printArtistSummary(playlist, countByArtist(tracks), tracks.length);
+          break;
+        }
+
+        case "list": {
+          process.stdout.write("Fetching your playlists...\r");
+          const allPlaylists = await getUserPlaylists(token);
+          process.stdout.write(" ".repeat(30) + "\r");
+          console.log();
+          console.log(chalk.bold(`Your playlists (${allPlaylists.length}):`));
+          console.log();
+          for (const p of allPlaylists) {
+            const count = p.items?.total ?? "?";
+            console.log(`  ${chalk.bold(p.name)} ${chalk.dim(`· ${count} tracks`)}`);
+          }
+          console.log();
           break;
         }
 

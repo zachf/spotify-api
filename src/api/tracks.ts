@@ -38,7 +38,7 @@ export async function getAllPlaylistTracks(
   onProgress?: (fetched: number, total: number) => void
 ): Promise<TrackWithPosition[]> {
   const tracks: TrackWithPosition[] = [];
-  let url: string | null = `/playlists/${playlistId}/tracks?limit=50`;
+  let url: string | null = `/playlists/${playlistId}/items?limit=50`;
   let position = 1;
 
   while (url) {

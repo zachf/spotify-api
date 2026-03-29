@@ -6,7 +6,7 @@ export async function getUserPlaylists(token: string): Promise<SimplifiedPlaylis
   let url: string | null = "/me/playlists?limit=50";
 
   while (url) {
-    const page = await apiFetch<PagingObject<SimplifiedPlaylist>>(url, token);
+    const page: PagingObject<SimplifiedPlaylist> = await apiFetch<PagingObject<SimplifiedPlaylist>>(url, token);
     playlists.push(...page.items);
     url = page.next;
   }
