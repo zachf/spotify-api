@@ -1,6 +1,6 @@
 import readline from "readline";
 import chalk from "chalk";
-import { getUserPlaylists, getPlaylist } from "../api/playlists.js";
+import { getUserPlaylists, getPlaylist, getCurrentUserId } from "../api/playlists.js";
 import { getAllPlaylistTracks, getLikedTracks } from "../api/tracks.js";
 import { findExactDuplicates } from "../analysis/exactMatcher.js";
 import { findFuzzyDuplicates } from "../analysis/fuzzyMatcher.js";
@@ -22,7 +22,7 @@ const HELP = `
 ${chalk.bold("Available commands:")}
 
   ${chalk.cyan("select")}              Pick a playlist interactively
-  ${chalk.cyan("select")} ${chalk.dim("<url|id>")}      Load a playlist by URL or ID
+  ${chalk.cyan("select")} ${chalk.dim("<url|id>")}     Load a playlist by URL or ID
 
   ${chalk.cyan("dupes")}               Check selected playlist for exact duplicates
   ${chalk.cyan("dupes fuzzy")}         Also check for near-duplicates (remasters, edits, etc.)
@@ -37,17 +37,9 @@ ${chalk.bold("Available commands:")}
   ${chalk.cyan("exit")}                Quit
 `;
 
-function createRl(): readline.Interface {
-  return readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-}
-
-function readLine(rl: readline.Interface): Promise<string | null> {
+function prompt(rl: readline.Interface): Promise<string | null> {
   return new Promise((resolve) => {
-    process.stdout.write(chalk.cyan("› "));
-    rl.once("line", resolve);
+    rl.question(chalk.cyan("› "), resolve);
     rl.once("close", () => resolve(null));
   });
 }
@@ -59,16 +51,17 @@ export async function runShell(token: string): Promise<void> {
   console.log(chalk.bold.green("\nSpotify Playlist Utility"));
   console.log(chalk.dim('Type "help" for available commands.\n'));
 
-  while (true) {
-    const rl = createRl();
-    const raw = await readLine(rl);
-    rl.close();
-    process.stdin.resume();
+  const userId = await getCurrentUserId(token);
 
-    if (raw === null) {
-      console.log("\nGoodbye.");
-      process.exit(0);
-    }
+  const onClose = () => { console.log("\nGoodbye."); process.exit(0); };
+
+  // Single persistent readline — only closed/recreated around inquirer calls
+  let rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  rl.on("close", onClose);
+
+  while (true) {
+    const raw = await prompt(rl);
+    if (raw === null) break;
 
     const line = raw.trim();
     if (!line) continue;
@@ -99,8 +92,14 @@ export async function runShell(token: string): Promise<void> {
             process.stdout.write("Fetching your playlists...\r");
             const playlists = await getUserPlaylists(token);
             process.stdout.write(" ".repeat(30) + "\r");
-            // Inquirer takes over stdin — readline is already closed above
-            playlist = await selectPlaylist(playlists);
+
+            // Close readline before handing stdin to inquirer, then recreate after
+            rl.removeListener("close", onClose);
+            rl.close();
+            playlist = await selectPlaylist(playlists.filter(p => p.owner.id === userId));
+            rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+            rl.on("close", onClose);
+
             tracks = null;
             console.log(chalk.green(`✓ Selected: ${playlist.name}`));
           }

@@ -1,6 +1,11 @@
 import { apiFetch } from "./client.js";
 import type { PagingObject, SimplifiedPlaylist } from "../types/spotify.js";
 
+export async function getCurrentUserId(token: string): Promise<string> {
+  const me = await apiFetch<{ id: string }>("/me", token);
+  return me.id;
+}
+
 export async function getUserPlaylists(token: string): Promise<SimplifiedPlaylist[]> {
   const playlists: SimplifiedPlaylist[] = [];
   let url: string | null = "/me/playlists?limit=50";
