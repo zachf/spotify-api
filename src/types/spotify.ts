@@ -58,6 +58,7 @@ export interface SimplifiedPlaylist {
 
 export interface TrackWithPosition extends TrackObject {
   position: number; // 1-based index in the playlist
+  added_at: string | null; // ISO 8601, null for Liked Songs or old playlists
 }
 
 export interface DuplicateGroup {

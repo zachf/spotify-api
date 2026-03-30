@@ -22,7 +22,7 @@ export async function getLikedTracks(
         position++;
         continue;
       }
-      tracks.push({ ...item.track, position: position++ });
+      tracks.push({ ...item.track, position: position++, added_at: item.added_at ?? null });
     }
 
     onProgress?.(tracks.length, page.total);
@@ -49,7 +49,7 @@ export async function getAllPlaylistTracks(
         position++;
         continue;
       }
-      tracks.push({ ...item.item, position: position++ });
+      tracks.push({ ...item.item, position: position++, added_at: item.added_at ?? null });
     }
 
     onProgress?.(tracks.length, page.total);

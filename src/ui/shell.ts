@@ -7,7 +7,9 @@ import { findFuzzyDuplicates } from "../analysis/fuzzyMatcher.js";
 import { countByArtist } from "../analysis/artistSummary.js";
 import { countByDecade } from "../analysis/decades.js";
 import { countByAlbum } from "../analysis/albumSummary.js";
-import { printResults, printArtistSummary, printAlbumSummary, printDecades, printLongest, printShortest, printSearch, printCompare } from "./reporter.js";
+import { groupByMonth } from "../analysis/timeline.js";
+import { runtimeByArtist } from "../analysis/runtimeByArtist.js";
+import { printResults, printArtistSummary, printAlbumSummary, printDecades, printLongest, printShortest, printSearch, printCompare, printTimeline, printRuntime, printOldest, printNewest, printRecent } from "./reporter.js";
 import { selectPlaylist, LIKED_SONGS_ID } from "./prompt.js";
 import type { SimplifiedPlaylist, TrackWithPosition } from "../types/spotify.js";
 
@@ -46,6 +48,12 @@ ${chalk.bold("Available commands:")}
 
   ${chalk.cyan("longest")}             Show the 10 longest tracks
   ${chalk.cyan("shortest")}            Show the 10 shortest tracks
+  ${chalk.cyan("oldest")}              Show the 10 oldest tracks by release date
+  ${chalk.cyan("newest")}              Show the 10 newest tracks by release date
+  ${chalk.cyan("recent")}              Show the 10 most recently added tracks
+
+  ${chalk.cyan("runtime")}             Show total runtime broken down by artist
+  ${chalk.cyan("timeline")}            Show tracks added per month
 
   ${chalk.cyan("search")} ${chalk.dim("<query>")}      Search for a track by name or artist
   ${chalk.cyan("compare")}             Compare selected playlist with another
@@ -182,6 +190,41 @@ export async function runShell(token: string): Promise<void> {
           if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
           tracks = await ensureTracks(playlist, tracks, token);
           printShortest(playlist, tracks, 10);
+          break;
+        }
+
+        case "oldest": {
+          if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
+          tracks = await ensureTracks(playlist, tracks, token);
+          printOldest(playlist, tracks, 10);
+          break;
+        }
+
+        case "newest": {
+          if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
+          tracks = await ensureTracks(playlist, tracks, token);
+          printNewest(playlist, tracks, 10);
+          break;
+        }
+
+        case "recent": {
+          if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
+          tracks = await ensureTracks(playlist, tracks, token);
+          printRecent(playlist, tracks, 10);
+          break;
+        }
+
+        case "runtime": {
+          if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
+          tracks = await ensureTracks(playlist, tracks, token);
+          printRuntime(playlist, runtimeByArtist(tracks), tracks.length);
+          break;
+        }
+
+        case "timeline": {
+          if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
+          tracks = await ensureTracks(playlist, tracks, token);
+          printTimeline(playlist, groupByMonth(tracks));
           break;
         }
 

@@ -3,6 +3,8 @@ import type { DuplicateGroup, SimplifiedPlaylist, TrackWithPosition } from "../t
 import type { ArtistCount } from "../analysis/artistSummary.js";
 import type { AlbumCount } from "../analysis/albumSummary.js";
 import type { DecadeCount } from "../analysis/decades.js";
+import type { TimelineMonth } from "../analysis/timeline.js";
+import type { ArtistRuntime } from "../analysis/runtimeByArtist.js";
 
 function formatMs(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -192,6 +194,113 @@ export function printSearch(
   }
   console.log();
   console.log(chalk.dim(`${results.length} result(s).`));
+  console.log();
+}
+
+export function printTimeline(
+  playlist: SimplifiedPlaylist,
+  months: TimelineMonth[]
+): void {
+  console.log();
+  console.log(chalk.bold.underline(playlist.name));
+  console.log(chalk.bold("Tracks added by month:"));
+  console.log();
+
+  const maxCount = Math.max(...months.map((m) => m.count));
+
+  for (const { month, count } of months) {
+    const [year, mon] = month.split("-");
+    const label = `${year}-${mon}`;
+    const countStr = String(count).padStart(4);
+    console.log(`${chalk.dim(countStr)}  ${bar(count, maxCount)}  ${label}`);
+  }
+
+  console.log();
+}
+
+export function printRuntime(
+  playlist: SimplifiedPlaylist,
+  artists: ArtistRuntime[],
+  totalTracks: number
+): void {
+  console.log();
+  console.log(chalk.bold.underline(playlist.name));
+  console.log(chalk.dim(`${totalTracks} tracks`));
+  console.log();
+  console.log(chalk.bold("Runtime by artist:"));
+  console.log();
+
+  const maxMs = artists[0]?.totalMs ?? 0;
+
+  for (const { artist, totalMs, count } of artists) {
+    const duration = formatMs(totalMs).padEnd(12);
+    console.log(`${chalk.dim(duration)}  ${bar(totalMs, maxMs)}  ${artist} ${chalk.dim(`(${count} track${count !== 1 ? "s" : ""})`)}`);
+  }
+
+  console.log();
+}
+
+export function printOldest(
+  playlist: SimplifiedPlaylist,
+  tracks: TrackWithPosition[],
+  n: number
+): void {
+  const sorted = [...tracks]
+    .filter((t) => t.album.release_date)
+    .sort((a, b) => a.album.release_date.localeCompare(b.album.release_date))
+    .slice(0, n);
+
+  console.log();
+  console.log(chalk.bold.underline(playlist.name));
+  console.log(chalk.bold(`${n} oldest tracks by release date:`));
+  console.log();
+  for (const t of sorted) {
+    const artists = t.artists.map((a) => a.name).join(", ");
+    console.log(`  ${chalk.dim(t.album.release_date.slice(0, 4).padEnd(6))}  ${chalk.bold(t.name)} ${chalk.dim("— " + artists)}`);
+  }
+  console.log();
+}
+
+export function printNewest(
+  playlist: SimplifiedPlaylist,
+  tracks: TrackWithPosition[],
+  n: number
+): void {
+  const sorted = [...tracks]
+    .filter((t) => t.album.release_date)
+    .sort((a, b) => b.album.release_date.localeCompare(a.album.release_date))
+    .slice(0, n);
+
+  console.log();
+  console.log(chalk.bold.underline(playlist.name));
+  console.log(chalk.bold(`${n} newest tracks by release date:`));
+  console.log();
+  for (const t of sorted) {
+    const artists = t.artists.map((a) => a.name).join(", ");
+    console.log(`  ${chalk.dim(t.album.release_date.slice(0, 4).padEnd(6))}  ${chalk.bold(t.name)} ${chalk.dim("— " + artists)}`);
+  }
+  console.log();
+}
+
+export function printRecent(
+  playlist: SimplifiedPlaylist,
+  tracks: TrackWithPosition[],
+  n: number
+): void {
+  const sorted = [...tracks]
+    .filter((t) => t.added_at)
+    .sort((a, b) => b.added_at!.localeCompare(a.added_at!))
+    .slice(0, n);
+
+  console.log();
+  console.log(chalk.bold.underline(playlist.name));
+  console.log(chalk.bold(`${n} most recently added tracks:`));
+  console.log();
+  for (const t of sorted) {
+    const artists = t.artists.map((a) => a.name).join(", ");
+    const date = t.added_at!.slice(0, 10);
+    console.log(`  ${chalk.dim(date)}  ${chalk.bold(t.name)} ${chalk.dim("— " + artists)}`);
+  }
   console.log();
 }
 
