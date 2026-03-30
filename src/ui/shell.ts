@@ -26,6 +26,11 @@ function formatDuration(ms: number): string {
   return `${minutes}m ${seconds}s`;
 }
 
+function parseLimit(arg: string, defaultN = 10): number {
+  const n = parseInt(arg, 10);
+  return isNaN(n) || n < 1 ? defaultN : n;
+}
+
 function parsePlaylistId(arg: string): string | null {
   const match = arg.match(PLAYLIST_URL_RE);
   if (match) return match[1];
@@ -46,11 +51,11 @@ ${chalk.bold("Available commands:")}
   ${chalk.cyan("albums")}              Show song count by album, sorted by count
   ${chalk.cyan("decades")}             Show song count by decade
 
-  ${chalk.cyan("longest")}             Show the 10 longest tracks
-  ${chalk.cyan("shortest")}            Show the 10 shortest tracks
-  ${chalk.cyan("oldest")}              Show the 10 oldest tracks by release date
-  ${chalk.cyan("newest")}              Show the 10 newest tracks by release date
-  ${chalk.cyan("recent")}              Show the 10 most recently added tracks
+  ${chalk.cyan("longest")} ${chalk.dim("[n]")}         Show the N longest tracks (default 10)
+  ${chalk.cyan("shortest")} ${chalk.dim("[n]")}        Show the N shortest tracks (default 10)
+  ${chalk.cyan("oldest")} ${chalk.dim("[n]")}          Show the N oldest tracks by release date (default 10)
+  ${chalk.cyan("newest")} ${chalk.dim("[n]")}          Show the N newest tracks by release date (default 10)
+  ${chalk.cyan("recent")} ${chalk.dim("[n]")}          Show the N most recently added tracks (default 10)
 
   ${chalk.cyan("runtime")}             Show total runtime broken down by artist
   ${chalk.cyan("timeline")}            Show tracks added per month
@@ -182,35 +187,35 @@ export async function runShell(token: string): Promise<void> {
         case "longest": {
           if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
           tracks = await ensureTracks(playlist, tracks, token);
-          printLongest(playlist, tracks, 10);
+          printLongest(playlist, tracks, parseLimit(arg));
           break;
         }
 
         case "shortest": {
           if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
           tracks = await ensureTracks(playlist, tracks, token);
-          printShortest(playlist, tracks, 10);
+          printShortest(playlist, tracks, parseLimit(arg));
           break;
         }
 
         case "oldest": {
           if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
           tracks = await ensureTracks(playlist, tracks, token);
-          printOldest(playlist, tracks, 10);
+          printOldest(playlist, tracks, parseLimit(arg));
           break;
         }
 
         case "newest": {
           if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
           tracks = await ensureTracks(playlist, tracks, token);
-          printNewest(playlist, tracks, 10);
+          printNewest(playlist, tracks, parseLimit(arg));
           break;
         }
 
         case "recent": {
           if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
           tracks = await ensureTracks(playlist, tracks, token);
-          printRecent(playlist, tracks, 10);
+          printRecent(playlist, tracks, parseLimit(arg));
           break;
         }
 
