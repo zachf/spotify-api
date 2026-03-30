@@ -13,12 +13,20 @@ export interface SimplifiedArtist {
   uri: string;
 }
 
+export interface SimplifiedAlbum {
+  id: string;
+  name: string;
+  release_date: string;
+  release_date_precision: "year" | "month" | "day";
+}
+
 export interface TrackObject {
   id: string | null;
   name: string;
   uri: string;
   duration_ms: number;
   artists: SimplifiedArtist[];
+  album: SimplifiedAlbum;
 }
 
 export interface PlaylistItemObject {
