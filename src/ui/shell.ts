@@ -5,7 +5,9 @@ import { getAllPlaylistTracks, getLikedTracks } from "../api/tracks.js";
 import { findExactDuplicates } from "../analysis/exactMatcher.js";
 import { findFuzzyDuplicates } from "../analysis/fuzzyMatcher.js";
 import { countByArtist } from "../analysis/artistSummary.js";
-import { printResults, printArtistSummary } from "./reporter.js";
+import { countByDecade } from "../analysis/decades.js";
+import { countByAlbum } from "../analysis/albumSummary.js";
+import { printResults, printArtistSummary, printAlbumSummary, printDecades, printLongest, printShortest, printSearch, printCompare } from "./reporter.js";
 import { selectPlaylist, LIKED_SONGS_ID } from "./prompt.js";
 import type { SimplifiedPlaylist, TrackWithPosition } from "../types/spotify.js";
 
@@ -39,6 +41,14 @@ ${chalk.bold("Available commands:")}
   ${chalk.cyan("dupes fuzzy")}         Also check for near-duplicates (remasters, edits, etc.)
 
   ${chalk.cyan("artists")}             Show song count by artist, sorted by count
+  ${chalk.cyan("albums")}              Show song count by album, sorted by count
+  ${chalk.cyan("decades")}             Show song count by decade
+
+  ${chalk.cyan("longest")}             Show the 10 longest tracks
+  ${chalk.cyan("shortest")}            Show the 10 shortest tracks
+
+  ${chalk.cyan("search")} ${chalk.dim("<query>")}      Search for a track by name or artist
+  ${chalk.cyan("compare")}             Compare selected playlist with another
 
   ${chalk.cyan("list")}                List all your playlists
 
@@ -50,8 +60,12 @@ ${chalk.bold("Available commands:")}
 
 function prompt(rl: readline.Interface): Promise<string | null> {
   return new Promise((resolve) => {
-    rl.question(chalk.cyan("› "), resolve);
-    rl.once("close", () => resolve(null));
+    const onClose = () => resolve(null);
+    rl.question(chalk.cyan("› "), (answer) => {
+      rl.removeListener("close", onClose);
+      resolve(answer);
+    });
+    rl.once("close", onClose);
   });
 }
 
@@ -140,6 +154,68 @@ export async function runShell(token: string): Promise<void> {
           }
           tracks = await ensureTracks(playlist, tracks, token);
           printArtistSummary(playlist, countByArtist(tracks), tracks.length);
+          break;
+        }
+
+        case "albums": {
+          if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
+          tracks = await ensureTracks(playlist, tracks, token);
+          printAlbumSummary(playlist, countByAlbum(tracks), tracks.length);
+          break;
+        }
+
+        case "decades": {
+          if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
+          tracks = await ensureTracks(playlist, tracks, token);
+          printDecades(playlist, countByDecade(tracks), tracks.length);
+          break;
+        }
+
+        case "longest": {
+          if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
+          tracks = await ensureTracks(playlist, tracks, token);
+          printLongest(playlist, tracks, 10);
+          break;
+        }
+
+        case "shortest": {
+          if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
+          tracks = await ensureTracks(playlist, tracks, token);
+          printShortest(playlist, tracks, 10);
+          break;
+        }
+
+        case "search": {
+          if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
+          if (!arg) { console.log(chalk.yellow('Usage: search <query>')); break; }
+          tracks = await ensureTracks(playlist, tracks, token);
+          const q = arg.toLowerCase();
+          const results = tracks.filter((t) =>
+            t.name.toLowerCase().includes(q) ||
+            t.artists.some((a) => a.name.toLowerCase().includes(q))
+          );
+          printSearch(playlist, results, arg);
+          break;
+        }
+
+        case "compare": {
+          if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
+          tracks = await ensureTracks(playlist, tracks, token);
+
+          process.stdout.write("Fetching your playlists...\r");
+          const comparePlaylists = await getUserPlaylists(token);
+          process.stdout.write(" ".repeat(30) + "\r");
+
+          rl.removeListener("close", onClose);
+          rl.close();
+          const otherPlaylist = await selectPlaylist(comparePlaylists.filter(p => p.id !== playlist!.id));
+          rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+          rl.on("close", onClose);
+
+          const otherTracks = await ensureTracks(otherPlaylist, null, token);
+          const otherIds = new Set(otherTracks.map((t) => t.id));
+          const common = tracks.filter((t) => t.id && otherIds.has(t.id));
+          printCompare(playlist, otherPlaylist, common);
           break;
         }
 
