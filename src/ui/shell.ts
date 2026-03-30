@@ -9,7 +9,8 @@ import { countByDecade } from "../analysis/decades.js";
 import { countByAlbum } from "../analysis/albumSummary.js";
 import { groupByMonth } from "../analysis/timeline.js";
 import { runtimeByArtist } from "../analysis/runtimeByArtist.js";
-import { printResults, printArtistSummary, printAlbumSummary, printDecades, printLongest, printShortest, printSearch, printCompare, printTimeline, printRuntime, printOldest, printNewest, printRecent } from "./reporter.js";
+import { getRecentlyPlayed } from "../api/history.js";
+import { printResults, printArtistSummary, printAlbumSummary, printDecades, printLongest, printShortest, printSearch, printCompare, printTimeline, printRuntime, printOldest, printNewest, printRecent, printHistory } from "./reporter.js";
 import { selectPlaylist, LIKED_SONGS_ID } from "./prompt.js";
 import type { SimplifiedPlaylist, TrackWithPosition } from "../types/spotify.js";
 
@@ -59,6 +60,8 @@ ${chalk.bold("Available commands:")}
 
   ${chalk.cyan("runtime")}             Show total runtime broken down by artist
   ${chalk.cyan("timeline")}            Show tracks added per month
+
+  ${chalk.cyan("history")} ${chalk.dim("[n]")}          Show your recently played tracks (default 50)
 
   ${chalk.cyan("search")} ${chalk.dim("<query>")}      Search for a track by name or artist
   ${chalk.cyan("compare")}             Compare selected playlist with another
@@ -230,6 +233,15 @@ export async function runShell(token: string): Promise<void> {
           if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
           tracks = await ensureTracks(playlist, tracks, token);
           printTimeline(playlist, groupByMonth(tracks));
+          break;
+        }
+
+        case "history": {
+          const limit = parseLimit(arg, 50);
+          process.stdout.write("Fetching recently played...\r");
+          const items = await getRecentlyPlayed(token, limit);
+          process.stdout.write(" ".repeat(40) + "\r");
+          printHistory(items);
           break;
         }
 

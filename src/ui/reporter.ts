@@ -304,6 +304,21 @@ export function printRecent(
   console.log();
 }
 
+export function printHistory(items: import("../api/history.js").PlayHistoryObject[]): void {
+  console.log();
+  console.log(chalk.bold("Recently played:"));
+  console.log();
+  for (const { track, played_at } of items) {
+    const artists = track.artists.map((a) => a.name).join(", ");
+    const date = played_at.slice(0, 10);
+    const time = played_at.slice(11, 16);
+    console.log(`  ${chalk.dim(`${date} ${time}`)}  ${chalk.bold(track.name)} ${chalk.dim("— " + artists)}`);
+  }
+  console.log();
+  console.log(chalk.dim(`${items.length} track(s).`));
+  console.log();
+}
+
 export function printCompare(
   playlistA: SimplifiedPlaylist,
   playlistB: SimplifiedPlaylist,
