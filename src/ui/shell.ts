@@ -11,6 +11,17 @@ import type { SimplifiedPlaylist, TrackWithPosition } from "../types/spotify.js"
 
 const PLAYLIST_URL_RE = /(?:playlist[/:])([\w]+)/;
 
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return `${hours}h ${minutes}m ${seconds}s`;
+  }
+  return `${minutes}m ${seconds}s`;
+}
+
 function parsePlaylistId(arg: string): string | null {
   const match = arg.match(PLAYLIST_URL_RE);
   if (match) return match[1];
@@ -152,12 +163,17 @@ export async function runShell(token: string): Promise<void> {
             console.log(chalk.yellow('No playlist loaded. Run "select" first.'));
             break;
           }
+          tracks = await ensureTracks(playlist, tracks, token);
+          const totalMs = tracks.reduce((sum, t) => sum + t.duration_ms, 0);
+          const uniqueAlbums = new Set(tracks.map((t) => t.album.id)).size;
           console.log();
-          console.log(`${chalk.bold("Name:")}   ${playlist.name}`);
-          console.log(`${chalk.bold("Owner:")}  ${playlist.owner.display_name}`);
-          console.log(`${chalk.bold("Tracks:")} ${playlist.items?.total ?? "?"}`);
+          console.log(`${chalk.bold("Name:")}     ${playlist.name}`);
+          console.log(`${chalk.bold("Owner:")}    ${playlist.owner.display_name}`);
+          console.log(`${chalk.bold("Tracks:")}   ${tracks.length}`);
+          console.log(`${chalk.bold("Albums:")}   ${uniqueAlbums}`);
+          console.log(`${chalk.bold("Duration:")} ${formatDuration(totalMs)}`);
           if (playlist.description) {
-            console.log(`${chalk.bold("Desc:")}   ${playlist.description}`);
+            console.log(`${chalk.bold("Desc:")}     ${playlist.description}`);
           }
           console.log();
           break;
