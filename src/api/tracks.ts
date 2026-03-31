@@ -15,7 +15,7 @@ export async function getLikedTracks(
   let position = 1;
 
   while (url) {
-    const page = await apiFetch<PagingObject<SavedTrackObject>>(url, token);
+    const page: PagingObject<SavedTrackObject> = await apiFetch<PagingObject<SavedTrackObject>>(url, token);
 
     for (const item of page.items) {
       if (!item.track || item.track.id === null) {
@@ -42,7 +42,7 @@ export async function getAllPlaylistTracks(
   let position = 1;
 
   while (url) {
-    const page = await apiFetch<PagingObject<PlaylistItemObject>>(url, token);
+    const page: PagingObject<PlaylistItemObject> = await apiFetch<PagingObject<PlaylistItemObject>>(url, token);
 
     for (const item of page.items) {
       if (!item.item || item.item.id === null) {
