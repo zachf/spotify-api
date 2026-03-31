@@ -68,6 +68,37 @@ export interface DuplicateGroup {
   positions: number[];
 }
 
+export type TimeRange = "short_term" | "medium_term" | "long_term";
+
+export interface TopArtistObject {
+  id: string;
+  name: string;
+  uri: string;
+  genres: string[];
+}
+
+export interface AudioFeatures {
+  id: string;
+  tempo: number;
+  energy: number;
+  danceability: number;
+  valence: number;
+  acousticness: number;
+  speechiness: number;
+  loudness: number;
+}
+
+export interface PlaylistMoodSummary {
+  avgTempo: number;
+  avgEnergy: number;
+  avgDanceability: number;
+  avgValence: number;
+  avgAcousticness: number;
+  avgSpeechiness: number;
+  avgLoudness: number;
+  trackCount: number;
+}
+
 export class SpotifyApiError extends Error {
   constructor(
     public readonly status: number,

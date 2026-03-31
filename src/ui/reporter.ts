@@ -1,10 +1,17 @@
 import chalk from "chalk";
-import type { DuplicateGroup, SimplifiedPlaylist, TrackWithPosition } from "../types/spotify.js";
+import type { DuplicateGroup, SimplifiedPlaylist, TrackWithPosition, TopArtistObject, TrackObject, TimeRange, PlaylistMoodSummary } from "../types/spotify.js";
 import type { ArtistCount } from "../analysis/artistSummary.js";
 import type { AlbumCount } from "../analysis/albumSummary.js";
 import type { DecadeCount } from "../analysis/decades.js";
 import type { TimelineMonth } from "../analysis/timeline.js";
 import type { ArtistRuntime } from "../analysis/runtimeByArtist.js";
+import type { RemovalPlan } from "../analysis/dupeRemovalPlan.js";
+
+const TIME_RANGE_LABELS: Record<TimeRange, string> = {
+  short_term: "last 4 weeks",
+  medium_term: "last 6 months",
+  long_term: "all time",
+};
 
 function formatMs(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -338,5 +345,77 @@ export function printCompare(
     const artists = t.artists.map(a => a.name).join(", ");
     console.log(`  ${chalk.bold(t.name)} ${chalk.dim("— " + artists)}`);
   }
+  console.log();
+}
+
+export function printTopTracks(tracks: TrackObject[], timeRange: TimeRange): void {
+  console.log();
+  console.log(chalk.bold(`Your top ${tracks.length} tracks — ${TIME_RANGE_LABELS[timeRange]}:`));
+  console.log();
+  tracks.forEach((t, i) => {
+    const artists = t.artists.map((a) => a.name).join(", ");
+    const num = String(i + 1).padStart(2);
+    console.log(`  ${chalk.dim(num + ".")}  ${chalk.bold(t.name)} ${chalk.dim("— " + artists)}`);
+  });
+  console.log();
+}
+
+export function printTopArtists(artists: TopArtistObject[], timeRange: TimeRange): void {
+  console.log();
+  console.log(chalk.bold(`Your top ${artists.length} artists — ${TIME_RANGE_LABELS[timeRange]}:`));
+  console.log();
+  artists.forEach((a, i) => {
+    const num = String(i + 1).padStart(2);
+    const genres = (a.genres ?? []).slice(0, 3).join(", ");
+    console.log(`  ${chalk.dim(num + ".")}  ${chalk.bold(a.name)}${genres ? chalk.dim("  · " + genres) : ""}`);
+  });
+  console.log();
+}
+
+export function printMoodSummary(playlist: SimplifiedPlaylist, summary: PlaylistMoodSummary): void {
+  console.log();
+  console.log(chalk.bold.underline(playlist.name));
+  console.log(chalk.dim(`Mood analysis — ${summary.trackCount} track(s)`));
+  console.log();
+
+  const label = (s: string) => s.padEnd(14);
+  const norm = (v: number) => Math.max(0, Math.min(1, v));
+  const loudnessNorm = norm((summary.avgLoudness + 60) / 60);
+
+  const rows: [string, number, string][] = [
+    ["Energy",       norm(summary.avgEnergy),       summary.avgEnergy.toFixed(2)],
+    ["Danceability", norm(summary.avgDanceability),  summary.avgDanceability.toFixed(2)],
+    ["Valence",      norm(summary.avgValence),       summary.avgValence.toFixed(2) + " (mood)"],
+    ["Acousticness", norm(summary.avgAcousticness),  summary.avgAcousticness.toFixed(2)],
+    ["Speechiness",  norm(summary.avgSpeechiness),   summary.avgSpeechiness.toFixed(2)],
+    ["Loudness",     loudnessNorm,                   summary.avgLoudness.toFixed(1) + " dB"],
+  ];
+
+  for (const [name, value, display] of rows) {
+    console.log(`  ${chalk.dim(label(name))}  ${bar(value, 1)}  ${display}`);
+  }
+
+  console.log(`  ${chalk.dim(label("Tempo"))}  ${"─".repeat(20)}  ${Math.round(summary.avgTempo)} BPM`);
+  console.log();
+}
+
+export function printRemovalPlan(playlist: SimplifiedPlaylist, plan: RemovalPlan): void {
+  console.log();
+  console.log(chalk.bold.underline(playlist.name));
+  console.log(chalk.bold(`Found ${plan.groups.length} duplicate group(s). The following will be removed:`));
+  console.log();
+
+  for (const group of plan.groups) {
+    const artists = group.artists.join(", ");
+    console.log(`  ${chalk.bold(group.trackName)} ${chalk.dim("— " + artists)}`);
+    const [keepPos, ...removePosns] = group.positions;
+    console.log(`    ${chalk.green("KEEP  ")} #${keepPos}`);
+    for (const pos of removePosns) {
+      console.log(`    ${chalk.red("REMOVE")} #${pos}`);
+    }
+    console.log();
+  }
+
+  console.log(chalk.dim(`Total: ${plan.toRemove.length} track(s) will be removed.`));
   console.log();
 }

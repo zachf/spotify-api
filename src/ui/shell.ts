@@ -2,7 +2,6 @@ import readline from "readline";
 import chalk from "chalk";
 import { getUserPlaylists, getPlaylist, getCurrentUserId } from "../api/playlists.js";
 import { getAllPlaylistTracks, getLikedTracks } from "../api/tracks.js";
-import { findExactDuplicates } from "../analysis/exactMatcher.js";
 import { findFuzzyDuplicates } from "../analysis/fuzzyMatcher.js";
 import { countByArtist } from "../analysis/artistSummary.js";
 import { countByDecade } from "../analysis/decades.js";
@@ -10,7 +9,12 @@ import { countByAlbum } from "../analysis/albumSummary.js";
 import { groupByMonth } from "../analysis/timeline.js";
 import { runtimeByArtist } from "../analysis/runtimeByArtist.js";
 import { getRecentlyPlayed } from "../api/history.js";
-import { printResults, printArtistSummary, printAlbumSummary, printDecades, printLongest, printShortest, printSearch, printCompare, printTimeline, printRuntime, printOldest, printNewest, printRecent, printHistory } from "./reporter.js";
+import { getTopTracks, getTopArtists } from "../api/top.js";
+import { removeTracksFromPlaylist } from "../api/playlistMutations.js";
+import { buildRemovalPlan } from "../analysis/dupeRemovalPlan.js";
+import { findExactDuplicates } from "../analysis/exactMatcher.js";
+import { printResults, printArtistSummary, printAlbumSummary, printDecades, printLongest, printShortest, printSearch, printCompare, printTimeline, printRuntime, printOldest, printNewest, printRecent, printHistory, printTopTracks, printTopArtists, printRemovalPlan } from "./reporter.js";
+import type { TimeRange } from "../types/spotify.js";
 import { selectPlaylist, LIKED_SONGS_ID } from "./prompt.js";
 import type { SimplifiedPlaylist, TrackWithPosition } from "../types/spotify.js";
 
@@ -61,7 +65,12 @@ ${chalk.bold("Available commands:")}
   ${chalk.cyan("runtime")}             Show total runtime broken down by artist
   ${chalk.cyan("timeline")}            Show tracks added per month
 
-  ${chalk.cyan("history")} ${chalk.dim("[n]")}          Show your recently played tracks (default 50)
+  ${chalk.cyan("top")} ${chalk.dim("[tracks|artists] [short_term|medium_term|long_term]")}
+                      Show your top tracks or artists (default: tracks, medium_term)
+
+  ${chalk.cyan("remove dupes")}        Remove exact duplicate tracks (asks for confirmation)
+
+  ${chalk.cyan("history")} ${chalk.dim("[n]")}         Show your recently played tracks (default 50)
 
   ${chalk.cyan("search")} ${chalk.dim("<query>")}      Search for a track by name or artist
   ${chalk.cyan("compare")}             Compare selected playlist with another
@@ -233,6 +242,48 @@ export async function runShell(token: string): Promise<void> {
           if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
           tracks = await ensureTracks(playlist, tracks, token);
           printTimeline(playlist, groupByMonth(tracks));
+          break;
+        }
+
+        case "top": {
+          const parts = arg.split(/\s+/).filter(Boolean);
+          const type = parts[0] === "artists" ? "artists" : "tracks";
+          const rawRange = parts.find((p) => ["short_term", "medium_term", "long_term"].includes(p));
+          const timeRange = (rawRange as TimeRange) ?? "medium_term";
+          process.stdout.write(`Fetching top ${type}...\r`);
+          if (type === "artists") {
+            const artists = await getTopArtists(token, timeRange);
+            process.stdout.write(" ".repeat(30) + "\r");
+            printTopArtists(artists, timeRange);
+          } else {
+            const topTracks = await getTopTracks(token, timeRange);
+            process.stdout.write(" ".repeat(30) + "\r");
+            printTopTracks(topTracks, timeRange);
+          }
+          break;
+        }
+
+        case "remove": {
+          if (arg !== "dupes") { console.log(chalk.red(`Unknown command: "remove ${arg}". Did you mean "remove dupes"?`)); break; }
+          if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
+          if (playlist.id === LIKED_SONGS_ID) { console.log(chalk.yellow("Cannot remove tracks from Liked Songs.")); break; }
+          if (playlist.owner.id !== userId) { console.log(chalk.yellow("You do not own this playlist.")); break; }
+          tracks = await ensureTracks(playlist, tracks, token);
+          const exactDupes = findExactDuplicates(tracks);
+          if (exactDupes.length === 0) { console.log(chalk.green("No exact duplicates found. Nothing to remove.")); break; }
+          const plan = buildRemovalPlan(tracks, exactDupes);
+          printRemovalPlan(playlist, plan);
+          const answer = await new Promise<string>((resolve) => {
+            rl.question(chalk.red(`Remove ${plan.toRemove.length} track(s)? Type YES to confirm: `), resolve);
+          });
+          if (answer !== "YES") { console.log("Cancelled."); break; }
+          process.stdout.write("Removing tracks...\r");
+          const uris = plan.toRemove.map((t) => t.uri).filter(Boolean);
+          console.error(`[debug] removing URIs:`, uris);
+          await removeTracksFromPlaylist(playlist.id, uris, token);
+          process.stdout.write(" ".repeat(30) + "\r");
+          tracks = null; // invalidate cache
+          console.log(chalk.green(`✓ Removed ${plan.toRemove.length} track(s) from "${playlist.name}".`));
           break;
         }
 

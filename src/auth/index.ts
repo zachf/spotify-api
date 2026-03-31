@@ -5,7 +5,7 @@ import { saveTokens, loadTokens, isAccessTokenExpired } from "./tokenStore.js";
 import type { SpotifyToken } from "../types/spotify.js";
 import { SpotifyApiError } from "../types/spotify.js";
 
-const SCOPES = "playlist-read-private playlist-read-collaborative user-library-read user-read-recently-played";
+const SCOPES = "playlist-read-private playlist-read-collaborative user-library-read user-read-recently-played user-top-read playlist-modify-private playlist-modify-public";
 const PORT = 8888;
 
 function getEnv(key: string): string {
