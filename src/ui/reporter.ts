@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import type { DuplicateGroup, SimplifiedPlaylist, TrackWithPosition, TopArtistObject, TrackObject, TimeRange, PlaylistMoodSummary } from "../types/spotify.js";
+import type { DuplicateGroup, SimplifiedPlaylist, TrackWithPosition, TopArtistObject, TrackObject, TimeRange } from "../types/spotify.js";
 import type { ArtistCount } from "../analysis/artistSummary.js";
 import type { AlbumCount } from "../analysis/albumSummary.js";
 import type { DecadeCount } from "../analysis/decades.js";
@@ -369,33 +369,6 @@ export function printTopArtists(artists: TopArtistObject[], timeRange: TimeRange
     const genres = (a.genres ?? []).slice(0, 3).join(", ");
     console.log(`  ${chalk.dim(num + ".")}  ${chalk.bold(a.name)}${genres ? chalk.dim("  · " + genres) : ""}`);
   });
-  console.log();
-}
-
-export function printMoodSummary(playlist: SimplifiedPlaylist, summary: PlaylistMoodSummary): void {
-  console.log();
-  console.log(chalk.bold.underline(playlist.name));
-  console.log(chalk.dim(`Mood analysis — ${summary.trackCount} track(s)`));
-  console.log();
-
-  const label = (s: string) => s.padEnd(14);
-  const norm = (v: number) => Math.max(0, Math.min(1, v));
-  const loudnessNorm = norm((summary.avgLoudness + 60) / 60);
-
-  const rows: [string, number, string][] = [
-    ["Energy",       norm(summary.avgEnergy),       summary.avgEnergy.toFixed(2)],
-    ["Danceability", norm(summary.avgDanceability),  summary.avgDanceability.toFixed(2)],
-    ["Valence",      norm(summary.avgValence),       summary.avgValence.toFixed(2) + " (mood)"],
-    ["Acousticness", norm(summary.avgAcousticness),  summary.avgAcousticness.toFixed(2)],
-    ["Speechiness",  norm(summary.avgSpeechiness),   summary.avgSpeechiness.toFixed(2)],
-    ["Loudness",     loudnessNorm,                   summary.avgLoudness.toFixed(1) + " dB"],
-  ];
-
-  for (const [name, value, display] of rows) {
-    console.log(`  ${chalk.dim(label(name))}  ${bar(value, 1)}  ${display}`);
-  }
-
-  console.log(`  ${chalk.dim(label("Tempo"))}  ${"─".repeat(20)}  ${Math.round(summary.avgTempo)} BPM`);
   console.log();
 }
 
