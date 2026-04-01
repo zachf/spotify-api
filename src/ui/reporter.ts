@@ -315,11 +315,15 @@ export function printHistory(items: import("../api/history.js").PlayHistoryObjec
   console.log();
   console.log(chalk.bold("Recently played:"));
   console.log();
-  for (const { track, played_at } of items) {
-    const artists = track.artists.map((a) => a.name).join(", ");
+  const rows = items.map(({ track, played_at }) => {
     const d = new Date(played_at);
     const local = `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    console.log(`  ${chalk.dim(local)}  ${chalk.bold(track.name)} ${chalk.dim("— " + artists)}`);
+    const artists = track.artists.map((a) => a.name).join(", ");
+    return { local, name: track.name, artists };
+  });
+  const colWidth = Math.max(...rows.map((r) => r.local.length));
+  for (const { local, name, artists } of rows) {
+    console.log(`  ${chalk.dim(local.padEnd(colWidth))}  ${chalk.bold(name)} ${chalk.dim("— " + artists)}`);
   }
   console.log();
   console.log(chalk.dim(`${items.length} track(s).`));

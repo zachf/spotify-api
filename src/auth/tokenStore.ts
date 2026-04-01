@@ -26,9 +26,3 @@ export function loadTokens(): SpotifyToken | null {
 export function isAccessTokenExpired(tokens: SpotifyToken): boolean {
   return tokens.expires_at < Date.now() + EXPIRY_BUFFER_MS;
 }
-
-export function clearTokens(): void {
-  if (fs.existsSync(TOKEN_FILE)) {
-    fs.unlinkSync(TOKEN_FILE);
-  }
-}
