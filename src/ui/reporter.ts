@@ -317,9 +317,9 @@ export function printHistory(items: import("../api/history.js").PlayHistoryObjec
   console.log();
   for (const { track, played_at } of items) {
     const artists = track.artists.map((a) => a.name).join(", ");
-    const date = played_at.slice(0, 10);
-    const time = played_at.slice(11, 16);
-    console.log(`  ${chalk.dim(`${date} ${time}`)}  ${chalk.bold(track.name)} ${chalk.dim("— " + artists)}`);
+    const d = new Date(played_at);
+    const local = `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    console.log(`  ${chalk.dim(local)}  ${chalk.bold(track.name)} ${chalk.dim("— " + artists)}`);
   }
   console.log();
   console.log(chalk.dim(`${items.length} track(s).`));
