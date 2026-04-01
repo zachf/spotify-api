@@ -79,7 +79,8 @@ ${chalk.bold("Available commands:")}
 
   ${chalk.cyan("export")} ${chalk.dim("[file]")}       Export playlist to CSV (default: <playlist-name>.csv)
 
-  ${chalk.cyan("list")}                List all your playlists
+  ${chalk.cyan("list")}                List playlists you own
+  ${chalk.cyan("list all")}            List all playlists (including followed)
 
   ${chalk.cyan("info")}                Show details about the currently loaded playlist
 
@@ -361,12 +362,15 @@ export async function runShell(token: string): Promise<void> {
           process.stdout.write("Fetching your playlists...\r");
           const allPlaylists = await getUserPlaylists(token);
           process.stdout.write(" ".repeat(30) + "\r");
+          const showAll = arg === "all";
+          const listed = showAll ? allPlaylists : allPlaylists.filter(p => p.owner.id === userId);
           console.log();
-          console.log(chalk.bold(`Your playlists (${allPlaylists.length}):`));
+          console.log(chalk.bold(`${showAll ? "All playlists" : "Your playlists"} (${listed.length}):`));
           console.log();
-          for (const p of allPlaylists) {
+          for (const p of listed) {
             const count = p.items?.total ?? "?";
-            console.log(`  ${chalk.bold(p.name)} ${chalk.dim(`· ${count} tracks`)}`);
+            const owner = p.owner.id !== userId ? chalk.dim(` · ${p.owner.display_name}`) : "";
+            console.log(`  ${chalk.bold(p.name)} ${chalk.dim(`· ${count} tracks`)}${owner}`);
           }
           console.log();
           break;
