@@ -1,4 +1,6 @@
 import readline from "readline";
+import fs from "fs";
+import path from "path";
 import chalk from "chalk";
 import { getUserPlaylists, getPlaylist, getCurrentUserId } from "../api/playlists.js";
 import { getAllPlaylistTracks, getLikedTracks } from "../api/tracks.js";
@@ -74,6 +76,8 @@ ${chalk.bold("Available commands:")}
 
   ${chalk.cyan("search")} ${chalk.dim("<query>")}      Search for a track by name or artist
   ${chalk.cyan("compare")}             Compare selected playlist with another
+
+  ${chalk.cyan("export")} ${chalk.dim("[file]")}       Export playlist to CSV (default: <playlist-name>.csv)
 
   ${chalk.cyan("list")}                List all your playlists
 
@@ -327,6 +331,29 @@ export async function runShell(token: string): Promise<void> {
           const otherIds = new Set(otherTracks.map((t) => t.id));
           const common = tracks.filter((t) => t.id && otherIds.has(t.id));
           printCompare(playlist, otherPlaylist, common);
+          break;
+        }
+
+        case "export": {
+          if (!playlist) { console.log(chalk.yellow('No playlist loaded. Run "select" first.')); break; }
+          tracks = await ensureTracks(playlist, tracks, token);
+          const safeName = playlist.name.replace(/[/\\?%*:|"<>]/g, "_");
+          const outFile = path.resolve(arg || `${safeName}.csv`);
+          const csvEscape = (s: string) => `"${s.replace(/"/g, '""')}"`;
+          const header = ["position", "title", "artists", "album", "release_date", "duration_ms", "added_at", "id"];
+          const rows = tracks.map((t) => [
+            t.position,
+            csvEscape(t.name),
+            csvEscape(t.artists.map((a) => a.name).join("; ")),
+            csvEscape(t.album.name),
+            t.album.release_date,
+            t.duration_ms,
+            t.added_at ?? "",
+            t.id ?? "",
+          ]);
+          const csv = [header.join(","), ...rows.map((r) => r.join(","))].join("\n") + "\n";
+          fs.writeFileSync(outFile, csv, "utf-8");
+          console.log(chalk.green(`✓ Exported ${tracks.length} tracks to ${outFile}`));
           break;
         }
 
